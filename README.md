@@ -2,6 +2,8 @@
 
 A Claude Code mod that makes replies easier to scan in the terminal. It draws `[[Done]]`, `[[Failed]]` and `[[Needs you]]` as colored pills with icons, gives known headings and lead labels an icon, colors bold text, and colors `✓`, `✗`, `→` and tree lines.
 
+<img src="screenshots/reply.png" width="716" alt="A Claude Code reply with status pills, icons on headings and lead labels, colored bold text, colored check marks and arrows, and a tree">
+
 It changes only what is drawn. Stored messages and copied text keep the original Markdown. Code blocks, inline code, quotes and replies with nothing to decorate are drawn by Claude Code as usual.
 
 The idea, the pill vocabulary and the icon tables come from [pi-emphasis](https://github.com/johnlindquist/pi-emphasis) by John Lindquist, which does the same for Pi.
@@ -41,6 +43,8 @@ The rules are a file and not part of the mod because an organization's policy ca
 ## Pills
 
 The word decides the color and the icon. A known word may carry detail, such as `[[Passed 12/12]]` or `[[Failed: 3 tests]]`. A label can be up to 32 characters.
+
+<img src="screenshots/pills.png" width="716" alt="Pills in each color: red, yellow, green, orange, teal, blue and soft blue, each with its icon">
 
 | Color | Meaning | Words |
 |---|---|---|
