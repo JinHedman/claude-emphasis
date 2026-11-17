@@ -1,0 +1,27 @@
+{
+  "name": "emphasis",
+  "version": "0.1.0",
+  "description": "Draws [[Status]] pills, label icons and colored bold in assistant replies in the terminal.",
+  "author": { "name": "kristalalfred" },
+  "license": "MIT",
+  "userConfig": {
+    "icons": {
+      "type": "boolean",
+      "title": "Icons",
+      "description": "Nerd Font icons in pills and on labels",
+      "default": true
+    },
+    "roundCaps": {
+      "type": "boolean",
+      "title": "Rounded pills",
+      "description": "Nerd Font half circles at each end of a pill",
+      "default": true
+    },
+    "boldColor": {
+      "type": "string",
+      "title": "Bold color",
+      "description": "Theme key or raw color for bold text",
+      "default": "claude"
+    }
+  }
+}
