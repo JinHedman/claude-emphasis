@@ -2,7 +2,7 @@
 
 A Claude Code mod that makes replies easier to scan in the terminal. It draws `[[Done]]`, `[[Failed]]` and `[[Needs you]]` as colored pills with icons, gives known headings and lead labels an icon, colors bold text, and colors `✓`, `✗`, `→` and tree lines. It also gives each part of a reply the weight of its role: an ask or a problem becomes a block with a colored bar, evidence is dim, a guess is italic, and working notes are dim and italic.
 
-<img src="screenshots/reply.png" width="716" alt="A Claude Code reply with status pills, icons on headings and lead labels, colored bold text, colored check marks and arrows, and a tree">
+<img src="screenshots/reply.png" width="716" alt="A Claude Code reply with status pills, an ask and a failure as blocks with a colored bar, dim evidence, an italic guess, dim italic working notes, ruled headings, icons on headings and lead labels, colored bold text, colored check marks and arrows, and a tree">
 
 It changes only what is drawn. Stored messages and copied text keep the original Markdown. Code blocks, inline code, quotes and replies with nothing to decorate are drawn by Claude Code as usual.
 
@@ -44,7 +44,7 @@ The rules are a file and not part of the mod because an organization's policy ca
 
 The word decides the color and the icon. A known word may carry detail, such as `[[Passed 12/12]]` or `[[Failed: 3 tests]]`. A label can be up to 32 characters.
 
-<img src="screenshots/pills.png" width="716" alt="Pills in each color: red, yellow, green, orange, teal, blue and soft blue, each with its icon">
+<img src="screenshots/pills.png" width="716" alt="Pills in each color: red, yellow, green, orange, teal, blue and soft blue, each with its icon, and the three evidence grades as colored tags with no fill">
 
 | Color | Meaning | Words |
 |---|---|---|
