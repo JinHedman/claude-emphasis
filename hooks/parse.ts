@@ -10,10 +10,17 @@ export type Span =
   | { kind: 'strike'; spans: Span[] }
   | { kind: 'link'; href: string; spans: Span[] }
 
+export type Line = {
+  kind: 'line'
+  indent: number
+  marker: string | undefined
+  spans: Span[]
+}
+
 export type Block =
   | { kind: 'blank' }
   | { kind: 'heading'; level: number; spans: Span[] }
-  | { kind: 'line'; indent: number; marker: string | undefined; spans: Span[] }
+  | Line
   | { kind: 'table'; rows: Span[][][] }
   | { kind: 'markdown'; text: string }
 

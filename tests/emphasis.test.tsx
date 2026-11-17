@@ -2,6 +2,7 @@ import { expect, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 
 import { inline, parse, plain } from '../hooks/parse'
+import { arrange } from '../hooks/passage'
 import { labelIcon, readPill } from '../hooks/vocabulary'
 
 const REPLY = {
@@ -144,6 +145,27 @@ test('fences, quotes and tables without pills are kept as markdown', () => {
     kind: 'markdown',
     text: '```sh\necho "[[Done]]"\n\n```',
   })
+})
+
+test('a line takes its deeper lines and tree rows into one passage', () => {
+  const parts = arrange(
+    parse(
+      [
+        'release',
+        '├── artifacts',
+        '- first',
+        '  - nested',
+        '  more of first',
+        '- second',
+        '',
+        'apart',
+      ].join('\n'),
+    ),
+  )
+
+  expect(
+    parts.map(part => (part.kind === 'passage' ? part.lines.length : part.kind)),
+  ).toEqual([2, 3, 1, 'blank', 1])
 })
 
 test('a reply with a pill is drawn as a colored pill with its icon', async $ => {

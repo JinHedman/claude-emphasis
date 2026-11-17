@@ -1,7 +1,8 @@
 import type { Elements, RenderElement } from 'claude-code'
 
 import { isDecorated, plain } from './parse'
-import type { Block, Mark, Span } from './parse'
+import type { Line, Mark, Span } from './parse'
+import type { Part } from './passage'
 import { labelIcon, readPill } from './vocabulary'
 import type { Tone } from './vocabulary'
 
@@ -72,15 +73,15 @@ export function cellsOf(text: string): number {
   return cells
 }
 
-export function isWorthDrawing(blocks: readonly Block[], style: Style): boolean {
-  return blocks.some(block => {
-    switch (block.kind) {
-      case 'line':
-        return isDecorated(block.spans)
+export function isWorthDrawing(parts: readonly Part[], style: Style): boolean {
+  return parts.some(part => {
+    switch (part.kind) {
+      case 'passage':
+        return part.lines.some(line => isDecorated(line.spans))
       case 'heading':
         return (
-          isDecorated(block.spans) ||
-          (style.icons && labelIcon(plain(block.spans), true) !== undefined)
+          isDecorated(part.spans) ||
+          (style.icons && labelIcon(plain(part.spans), true) !== undefined)
         )
       case 'table':
         return true
@@ -92,7 +93,7 @@ export function isWorthDrawing(blocks: readonly Block[], style: Style): boolean 
 
 export function drawReply(
   { Box, Text, Link, Markdown }: Kit,
-  blocks: readonly Block[],
+  parts: readonly Part[],
   frame: Frame,
   style: Style,
 ): RenderElement {
@@ -226,18 +227,31 @@ export function drawReply(
     )
   }
 
-  const drawBlock = (block: Block): RenderElement => {
-    switch (block.kind) {
+  const drawLine = (line: Line): RenderElement => (
+    <Box flexDirection="row" paddingLeft={line.indent}>
+      {line.marker === undefined ? null : (
+        <Box flexShrink={0}>
+          <Text>{`${line.marker} `}</Text>
+        </Box>
+      )}
+      <Text>{line.spans.map(drawSpan)}</Text>
+    </Box>
+  )
+
+  const drawPart = (part: Part): RenderElement => {
+    switch (part.kind) {
       case 'blank':
         return <Box height={1} />
       case 'markdown':
-        return <Markdown text={block.text} />
+        return <Markdown text={part.text} />
       case 'table':
-        return drawTable(block.rows)
+        return drawTable(part.rows)
+      case 'passage':
+        return <Box flexDirection="column">{part.lines.map(drawLine)}</Box>
       case 'heading': {
-        const icon = iconOf(block.spans, true)
-        const title = block.spans.map(drawSpan)
-        const isTop = block.level === 1
+        const icon = iconOf(part.spans, true)
+        const title = part.spans.map(drawSpan)
+        const isTop = part.level === 1
 
         return (
           <Text bold italic={isTop} underline={isTop}>
@@ -245,17 +259,6 @@ export function drawReply(
           </Text>
         )
       }
-      case 'line':
-        return (
-          <Box flexDirection="row" paddingLeft={block.indent}>
-            {block.marker === undefined ? null : (
-              <Box flexShrink={0}>
-                <Text>{`${block.marker} `}</Text>
-              </Box>
-            )}
-            <Text>{block.spans.map(drawSpan)}</Text>
-          </Box>
-        )
     }
   }
 
@@ -265,7 +268,7 @@ export function drawReply(
         <Text>{frame.isFirstOfReply ? REPLY_BULLET : ' '}</Text>
       </Box>
       <Box flexDirection="column" flexGrow={1} flexShrink={1}>
-        {blocks.map(drawBlock)}
+        {parts.map(drawPart)}
       </Box>
     </Box>
   )

@@ -3,6 +3,7 @@ import type { Register } from 'claude-code'
 import { drawReply, isWorthDrawing } from './draw'
 import type { Style } from './draw'
 import { parse } from './parse'
+import { arrange } from './passage'
 
 const FALLBACK_COLUMNS = 80
 
@@ -23,15 +24,15 @@ export const register: Register = (on, options) => {
       if (e.props.isSummary) {
         return next(e)
       }
-      const blocks = parse(e.props.text)
+      const parts = arrange(parse(e.props.text))
 
-      if (!isWorthDrawing(blocks, style)) {
+      if (!isWorthDrawing(parts, style)) {
         return next(e)
       }
 
       return drawReply(
         $.ui.resolve(e),
-        blocks,
+        parts,
         {
           isFirstOfReply: e.props.isFirstOfReply,
           columns: e.viewport?.columns ?? FALLBACK_COLUMNS,
