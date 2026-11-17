@@ -2,9 +2,10 @@ import type { Elements, RenderElement } from 'claude-code'
 
 import { isDecorated, plain } from './parse'
 import type { Line, Mark, Span } from './parse'
-import type { Part } from './passage'
-import { labelIcon, readPill } from './vocabulary'
-import type { Tone } from './vocabulary'
+import { isCallout } from './passage'
+import type { Part, Passage } from './passage'
+import { isAction, isKnownLabel, labelIcon, readPill } from './vocabulary'
+import type { Role, Tone } from './vocabulary'
 
 export type Style = {
   icons: boolean
@@ -39,6 +40,63 @@ const RIGHT_CAP = ''
 const REPLY_BULLET = '⏺'
 const COLUMN_GAP = 2
 const NARROWEST_COLUMN = 8
+const GUTTER = 2
+const HEADING_RULES: Record<number, string> = { 1: '━', 2: '─' }
+const RULE_MARGIN = 2
+const SHORTEST_RULE = 4
+
+type Tint = { dim: boolean; italic: boolean }
+
+const PLAIN: Tint = { dim: false, italic: false }
+
+const TINTS: Record<Role, Tint> = {
+  ask: PLAIN,
+  problem: PLAIN,
+  statement: PLAIN,
+  evidence: { dim: true, italic: false },
+  speculation: { dim: false, italic: true },
+  thinking: { dim: true, italic: true },
+}
+
+function trimStart(spans: readonly Span[]): Span[] {
+  const [first, ...rest] = spans
+
+  if (first?.kind !== 'text') {
+    return [...spans]
+  }
+  const text = first.text.trimStart()
+
+  return text === '' ? rest : [{ kind: 'text', text }, ...rest]
+}
+
+function trimEnd(spans: readonly Span[]): Span[] {
+  const last = spans.at(-1)
+  const rest = spans.slice(0, -1)
+
+  if (last?.kind !== 'text') {
+    return [...spans]
+  }
+  const text = last.text.trimEnd()
+
+  return text === '' ? rest : [...rest, { kind: 'text', text }]
+}
+
+function splitAtAction(spans: readonly Span[]): Span[][] {
+  const at = spans.findIndex(
+    (span, index) =>
+      index > 0 && span.kind === 'bold' && isAction(plain(span.spans)),
+  )
+  const action = spans[at]
+
+  if (action?.kind !== 'bold') {
+    return [[...spans]]
+  }
+
+  return [
+    trimEnd(spans.slice(0, at)),
+    [{ ...action, isLead: true }, ...spans.slice(at + 1)],
+  ]
+}
 
 function isWide(code: number): boolean {
   return (
@@ -73,16 +131,12 @@ export function cellsOf(text: string): number {
   return cells
 }
 
-export function isWorthDrawing(parts: readonly Part[], style: Style): boolean {
+export function isWorthDrawing(parts: readonly Part[]): boolean {
   return parts.some(part => {
     switch (part.kind) {
       case 'passage':
         return part.lines.some(line => isDecorated(line.spans))
       case 'heading':
-        return (
-          isDecorated(part.spans) ||
-          (style.icons && labelIcon(plain(part.spans), true) !== undefined)
-        )
       case 'table':
         return true
       default:
@@ -98,10 +152,10 @@ export function drawReply(
   style: Style,
 ): RenderElement {
   const pillText = (label: string) => {
-    const { tone, text, icon } = readPill(label)
+    const { tone, text, icon, isGrade } = readPill(label)
     const shown = style.icons && icon !== undefined ? `${icon} ${text}` : text
 
-    return { tone, text: shown.replaceAll(' ', NO_BREAK_SPACE) }
+    return { tone, isGrade, text: shown.replaceAll(' ', NO_BREAK_SPACE) }
   }
 
   const iconOf = (spans: readonly Span[], isLead: boolean) =>
@@ -113,8 +167,11 @@ export function drawReply(
       case 'code':
       case 'mark':
         return cellsOf(span.text)
-      case 'pill':
-        return cellsOf(pillText(span.label).text) + 2
+      case 'pill': {
+        const { text, isGrade } = pillText(span.label)
+
+        return cellsOf(text) + (isGrade ? 0 : 2)
+      }
       case 'bold':
         return (
           spansCells(span.spans) +
@@ -128,7 +185,9 @@ export function drawReply(
   const spansCells = (spans: readonly Span[]): number =>
     spans.reduce((cells, span) => cells + spanCells(span), 0)
 
-  const drawSpan = (span: Span): Node => {
+  const drawSpan = (span: Span, tint: Tint = PLAIN): Node => {
+    const drawInner = (inner: Span) => drawSpan(inner, tint)
+
     switch (span.kind) {
       case 'text':
         return span.text
@@ -141,8 +200,12 @@ export function drawReply(
           <Text color={MARK_COLORS[span.mark]}>{span.text}</Text>
         )
       case 'pill': {
-        const { tone, text } = pillText(span.label)
+        const { tone, text, isGrade } = pillText(span.label)
         const fill = TONE_COLORS[tone]
+
+        if (isGrade) {
+          return <Text color={fill}>{text}</Text>
+        }
 
         return style.roundCaps ? (
           <Text>
@@ -160,20 +223,25 @@ export function drawReply(
       }
       case 'bold': {
         const icon = iconOf(span.spans, span.isLead)
-        const inner = span.spans.map(drawSpan)
+        const inner = span.spans.map(drawInner)
+        const shown = icon === undefined ? inner : [`${icon} `, ...inner]
 
-        return (
+        return tint.dim ? (
+          <Text bold dimColor>
+            {shown}
+          </Text>
+        ) : (
           <Text bold color={style.boldColor}>
-            {icon === undefined ? inner : [`${icon} `, ...inner]}
+            {shown}
           </Text>
         )
       }
       case 'italic':
-        return <Text italic>{span.spans.map(drawSpan)}</Text>
+        return <Text italic>{span.spans.map(drawInner)}</Text>
       case 'strike':
-        return <Text strikethrough>{span.spans.map(drawSpan)}</Text>
+        return <Text strikethrough>{span.spans.map(drawInner)}</Text>
       case 'link':
-        return <Link href={span.href}>{span.spans.map(drawSpan)}</Link>
+        return <Link href={span.href}>{span.spans.map(drawInner)}</Link>
     }
   }
 
@@ -182,7 +250,7 @@ export function drawReply(
     const widths = Array.from({ length: columnCount }, (_, column) =>
       Math.max(1, ...rows.map(row => spansCells(row[column] ?? []))),
     )
-    const room = frame.columns - 2 - COLUMN_GAP * (columnCount - 1)
+    const room = frame.columns - GUTTER - COLUMN_GAP * (columnCount - 1)
     let excess = widths.reduce((total, width) => total + width, 0) - room
 
     while (excess > 0) {
@@ -210,7 +278,7 @@ export function drawReply(
       <Box flexDirection="column">
         {drawRow(
           widths.map((_, column) => (
-            <Text bold>{(header[column] ?? []).map(drawSpan)}</Text>
+            <Text bold>{(header[column] ?? []).map(span => drawSpan(span))}</Text>
           )),
         )}
         {drawRow(
@@ -219,7 +287,7 @@ export function drawReply(
         {body.map(row =>
           drawRow(
             widths.map((_, column) => (
-              <Text>{(row[column] ?? []).map(drawSpan)}</Text>
+              <Text>{(row[column] ?? []).map(span => drawSpan(span))}</Text>
             )),
           ),
         )}
@@ -227,16 +295,85 @@ export function drawReply(
     )
   }
 
-  const drawLine = (line: Line): RenderElement => (
-    <Box flexDirection="row" paddingLeft={line.indent}>
-      {line.marker === undefined ? null : (
-        <Box flexShrink={0}>
-          <Text>{`${line.marker} `}</Text>
+  const drawRow = (
+    spans: readonly Span[],
+    tint: Tint,
+    indent: number,
+    marker: string | undefined,
+  ): RenderElement => {
+    const [lead, ...rest] = spans
+    const label =
+      lead?.kind === 'bold' && isKnownLabel(plain(lead.spans)) ? lead : undefined
+    const body = label === undefined ? spans : trimStart(rest)
+
+    return (
+      <Box flexDirection="row" paddingLeft={indent}>
+        {marker === undefined ? null : (
+          <Box flexShrink={0}>
+            <Text dimColor={tint.dim}>{`${marker} `}</Text>
+          </Box>
+        )}
+        {label === undefined ? null : (
+          <Box flexShrink={0} marginRight={body.length === 0 ? 0 : 1}>
+            <Text dimColor={tint.dim} italic={tint.italic}>
+              {drawSpan(label, tint)}
+            </Text>
+          </Box>
+        )}
+        {label !== undefined && body.length === 0 ? null : (
+          <Text dimColor={tint.dim} italic={tint.italic}>
+            {body.map(span => drawSpan(span, tint))}
+          </Text>
+        )}
+      </Box>
+    )
+  }
+
+  const drawLine = (line: Line, tint: Tint): RenderElement =>
+    drawRow(line.spans, tint, line.indent, line.marker)
+
+  const drawCallout = (passage: Passage): RenderElement => {
+    const [opener, ...rest] = passage.lines
+
+    if (opener === undefined) {
+      return <Box />
+    }
+    const textStart =
+      opener.indent +
+      (opener.marker === undefined ? 0 : opener.marker.length + 1)
+
+    return (
+      <Box flexDirection="row" paddingLeft={opener.indent}>
+        <Box
+          flexShrink={0}
+          width={1}
+          backgroundColor={TONE_COLORS[passage.tone]}
+        />
+        <Box flexDirection="column" flexGrow={1} flexShrink={1} paddingLeft={1}>
+          {splitAtAction(opener.spans).map(spans =>
+            drawRow(spans, PLAIN, 0, undefined),
+          )}
+          {rest.map(line =>
+            drawRow(
+              line.spans,
+              PLAIN,
+              Math.max(0, line.indent - textStart),
+              line.marker,
+            ),
+          )}
         </Box>
-      )}
-      <Text>{line.spans.map(drawSpan)}</Text>
-    </Box>
-  )
+      </Box>
+    )
+  }
+
+  const drawPassage = (passage: Passage): RenderElement =>
+    isCallout(passage) ? (
+      drawCallout(passage)
+    ) : (
+      <Box flexDirection="column">
+        {passage.lines.map(line => drawLine(line, TINTS[passage.role]))}
+      </Box>
+    )
 
   const drawPart = (part: Part): RenderElement => {
     switch (part.kind) {
@@ -247,16 +384,37 @@ export function drawReply(
       case 'table':
         return drawTable(part.rows)
       case 'passage':
-        return <Box flexDirection="column">{part.lines.map(drawLine)}</Box>
+        return drawPassage(part)
       case 'heading': {
         const icon = iconOf(part.spans, true)
-        const title = part.spans.map(drawSpan)
-        const isTop = part.level === 1
+        const title = part.spans.map(span => drawSpan(span))
+        const shown = icon === undefined ? title : [`${icon} `, ...title]
+        const rule = HEADING_RULES[part.level]
+        const room =
+          frame.columns -
+          GUTTER -
+          spansCells(part.spans) -
+          (icon === undefined ? 0 : 2) -
+          1 -
+          RULE_MARGIN
+
+        if (rule === undefined || room < SHORTEST_RULE) {
+          return (
+            <Text bold={part.level <= 3} italic={part.level > 3}>
+              {shown}
+            </Text>
+          )
+        }
 
         return (
-          <Text bold italic={isTop} underline={isTop}>
-            {icon === undefined ? title : [`${icon} `, ...title]}
-          </Text>
+          <Box flexDirection="row" columnGap={1}>
+            <Box flexShrink={0}>
+              <Text bold>{shown}</Text>
+            </Box>
+            <Text dimColor wrap="truncate-end">
+              {rule.repeat(room)}
+            </Text>
+          </Box>
         )
       }
     }
@@ -264,7 +422,7 @@ export function drawReply(
 
   return (
     <Box flexDirection="row" marginTop={1}>
-      <Box flexShrink={0} minWidth={2}>
+      <Box flexShrink={0} minWidth={GUTTER}>
         <Text>{frame.isFirstOfReply ? REPLY_BULLET : ' '}</Text>
       </Box>
       <Box flexDirection="column" flexGrow={1} flexShrink={1}>

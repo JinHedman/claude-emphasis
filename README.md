@@ -1,6 +1,6 @@
 # claude-emphasis
 
-A Claude Code mod that makes replies easier to scan in the terminal. It draws `[[Done]]`, `[[Failed]]` and `[[Needs you]]` as colored pills with icons, gives known headings and lead labels an icon, colors bold text, and colors `✓`, `✗`, `→` and tree lines.
+A Claude Code mod that makes replies easier to scan in the terminal. It draws `[[Done]]`, `[[Failed]]` and `[[Needs you]]` as colored pills with icons, gives known headings and lead labels an icon, colors bold text, and colors `✓`, `✗`, `→` and tree lines. It also gives each part of a reply the weight of its role: an ask or a problem becomes a block with a colored bar, evidence is dim, a guess is italic, and working notes are dim and italic.
 
 <img src="screenshots/reply.png" width="716" alt="A Claude Code reply with status pills, icons on headings and lead labels, colored bold text, colored check marks and arrows, and a tree">
 
@@ -57,6 +57,21 @@ The word decides the color and the icon. A known word may carry detail, such as 
 | Soft blue | Context | Inferred, New, Changed, Optional, and any other label |
 
 Colors come from your Claude Code theme.
+
+## Roles
+
+What opens a paragraph or list item sets how all of it is drawn. Lines indented under it belong to it.
+
+| Opens with | Role | Drawn as |
+|---|---|---|
+| `[[Needs you]]`, `[[Decision]]` or an orange pill | Ask | A block with a bar in the pill's color, its `**Do:**` on a line of its own |
+| A red pill | Problem | The same block, in red |
+| `**Evidence:**` | Evidence | Dim |
+| `**Guess:**` | Speculation | Italic |
+| `**Thinking:**` | Working notes | Dim and italic |
+| Anything else | Statement | Full strength |
+
+`[[Observed]]`, `[[Inferred]]` and `[[Unverified]]` grade a claim, so they are drawn as colored tags with no fill. Text after a known label such as `**Cause:**` wraps in line with itself, not under the label. The first two heading levels carry a rule.
 
 ## Settings
 

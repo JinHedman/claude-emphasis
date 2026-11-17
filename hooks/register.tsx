@@ -26,7 +26,7 @@ export const register: Register = (on, options) => {
       }
       const parts = arrange(parse(e.props.text))
 
-      if (!isWorthDrawing(parts, style)) {
+      if (!isWorthDrawing(parts)) {
         return next(e)
       }
 

@@ -57,6 +57,39 @@ export const VOCABULARY: Record<
 
 export const CONTEXT_WORDS = ['Inferred', 'New', 'Changed', 'Optional']
 
+export const ASKS = ['Needs you', 'Decision']
+
+export const GRADES = ['Observed', 'Inferred', 'Unverified']
+
+export type Role =
+  | 'ask'
+  | 'problem'
+  | 'statement'
+  | 'evidence'
+  | 'speculation'
+  | 'thinking'
+
+export type QuietRole = 'evidence' | 'speculation' | 'thinking'
+
+export const ROLE_LABELS: Record<QuietRole, string> = {
+  evidence: 'Evidence',
+  speculation: 'Guess',
+  thinking: 'Thinking',
+}
+
+const ROLE_OF_LABEL = new Map<string, QuietRole>(
+  (Object.keys(ROLE_LABELS) as QuietRole[]).map(role => [
+    ROLE_LABELS[role].toLowerCase(),
+    role,
+  ]),
+)
+
+const lowered = (words: readonly string[]) =>
+  new Set(words.map(word => word.toLowerCase()))
+
+const ASK_KEYS = lowered(ASKS)
+const GRADE_KEYS = lowered(GRADES)
+
 const TONE_ORDER: readonly KnownTone[] = [
   'danger',
   'error',
@@ -85,7 +118,6 @@ const PILL_ICONS: Record<string, string> = {
   complete: CHECK,
   completed: CHECK,
   ok: CHECK,
-  verified: CHECK,
   ready: CHECK,
   observed: '',
   recommended: '',
@@ -146,6 +178,7 @@ const SYNONYMS: Record<string, string> = {
   failing: 'Failed',
   error: 'Failed',
   waiting: 'Pending',
+  verified: 'Observed',
   'needs review': 'Review',
 }
 
@@ -179,6 +212,8 @@ export const LABEL_ICONS: Record<string, string> = {
   file: '',
   branch: '',
   ideas: '',
+  guess: '',
+  thinking: '',
 }
 
 export const ACTION_ICONS: Record<string, string> = {
@@ -203,7 +238,13 @@ const KNOWN_WORDS = [
   ]),
 ].sort((a, b) => b.length - a.length)
 
-export type Pill = { tone: Tone; text: string; icon: string | undefined }
+export type Pill = {
+  tone: Tone
+  text: string
+  icon: string | undefined
+  isGrade: boolean
+  opens: 'ask' | 'problem' | undefined
+}
 
 export function readPill(label: string): Pill {
   const own = label.match(OWN_ICON)
@@ -223,10 +264,28 @@ export function readPill(label: string): Pill {
       ? canonical + written.slice(known.length)
       : written
 
+  const tone = TONE_OF_WORD.get(key) ?? 'neutral'
+
   return {
-    tone: TONE_OF_WORD.get(key) ?? 'neutral',
+    tone,
     text,
     icon: own?.[1] ?? PILL_ICONS[key],
+    isGrade: GRADE_KEYS.has(key),
+    opens:
+      tone === 'danger' || ASK_KEYS.has(key)
+        ? 'ask'
+        : tone === 'error'
+          ? 'problem'
+          : undefined,
+  }
+}
+
+function readLabel(label: string): { word: string; hasColon: boolean } {
+  const trimmed = label.trim()
+
+  return {
+    word: trimmed.replace(/[:\s]+$/, '').toLowerCase(),
+    hasColon: trimmed.endsWith(':'),
   }
 }
 
@@ -234,10 +293,27 @@ export function labelIcon(label: string, isLead: boolean): string | undefined {
   if (OWN_ICON.test(label)) {
     return undefined
   }
-  const trimmed = label.trim()
-  const hasColon = trimmed.endsWith(':')
-  const word = trimmed.replace(/[:\s]+$/, '').toLowerCase()
+  const { word, hasColon } = readLabel(label)
   const action = hasColon ? ACTION_ICONS[word] : undefined
 
   return isLead ? (LABEL_ICONS[word] ?? action) : action
+}
+
+export function labelRole(label: string): QuietRole | undefined {
+  return ROLE_OF_LABEL.get(readLabel(label).word)
+}
+
+export function isAction(label: string): boolean {
+  const { word, hasColon } = readLabel(label)
+
+  return hasColon && ACTION_ICONS[word] !== undefined
+}
+
+export function isKnownLabel(label: string): boolean {
+  const { word, hasColon } = readLabel(label)
+
+  return (
+    hasColon &&
+    (LABEL_ICONS[word] !== undefined || ACTION_ICONS[word] !== undefined)
+  )
 }
