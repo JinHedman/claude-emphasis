@@ -23,6 +23,7 @@ export type Block =
   | Line
   | { kind: 'table'; rows: Span[][][] }
   | { kind: 'markdown'; text: string }
+  | { kind: 'fence'; text: string }
 
 const PILL = /\[\[([^[\]\n]{1,32})\]\]/y
 const LINK =
@@ -405,9 +406,7 @@ export function parse(markdown: string): Block[] {
       while (end < lines.length && !isClosing(lines[end] ?? '')) {
         end += 1
       }
-      flush()
-      kept.push(...lines.slice(at, end + 1))
-      flush()
+      add({ kind: 'fence', text: lines.slice(at, end + 1).join('\n') })
       at = end + 1
       continue
     }

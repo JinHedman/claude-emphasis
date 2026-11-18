@@ -7,6 +7,12 @@ export type Passage = { kind: 'passage'; role: Role; tone: Tone; lines: Line[] }
 
 export type Part = Exclude<Block, Line> | Passage
 
+export type Fence = Extract<Block, { kind: 'fence' }>
+
+export type Drawable = Exclude<Part, Fence>
+
+export type Piece = Fence | { kind: 'drawn'; parts: Drawable[] }
+
 export const isBlank = (span: Span) =>
   span.kind === 'text' && span.text.trim() === ''
 
@@ -93,4 +99,44 @@ export function arrange(blocks: readonly Block[]): Part[] {
   }
 
   return parts
+}
+
+function trimBlanks(parts: Drawable[]): Drawable[] {
+  let start = 0
+  let end = parts.length
+
+  while (start < end && parts[start]?.kind === 'blank') {
+    start += 1
+  }
+  while (end > start && parts[end - 1]?.kind === 'blank') {
+    end -= 1
+  }
+
+  return parts.slice(start, end)
+}
+
+export function piecesOf(parts: readonly Part[]): Piece[] {
+  const pieces: Piece[] = []
+  let drawn: Drawable[] = []
+
+  const flush = () => {
+    const kept = trimBlanks(drawn)
+
+    if (kept.length > 0) {
+      pieces.push({ kind: 'drawn', parts: kept })
+    }
+    drawn = []
+  }
+
+  for (const part of parts) {
+    if (part.kind === 'fence') {
+      flush()
+      pieces.push(part)
+    } else {
+      drawn.push(part)
+    }
+  }
+  flush()
+
+  return pieces
 }

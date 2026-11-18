@@ -116,7 +116,7 @@ test('bold, italic, links, marks and pills become spans', () => {
   )
 })
 
-test('fences, quotes and tables without pills are kept as markdown', () => {
+test('fences stand apart, quotes and tables without pills are kept as markdown', () => {
   const blocks = parse(
     [
       '## Result',
@@ -146,7 +146,7 @@ test('fences, quotes and tables without pills are kept as markdown', () => {
     'line',
     'line',
     'blank',
-    'markdown',
+    'fence',
     'markdown',
     'blank',
     'markdown',
@@ -159,7 +159,7 @@ test('fences, quotes and tables without pills are kept as markdown', () => {
   })
   expect(blocks[3]).toMatchObject({ indent: 2, spans: [{ mark: 'tree' }, {}] })
   expect(blocks[5]).toEqual({
-    kind: 'markdown',
+    kind: 'fence',
     text: '```sh\necho "[[Done]]"\n\n```',
   })
 })
@@ -316,4 +316,24 @@ test('the first two heading levels carry a rule', async $ => {
   expect(await draw($, '# Title')).toContain('━━━━')
   expect(await draw($, '## Section')).toContain('────')
   expect(await draw($, '### Detail')).not.toContain('──')
+})
+
+test('a fence is handed down the chain between the drawn parts around it', async ($, on) => {
+  const beneath: { text: string; isFirstOfReply: boolean }[] = []
+
+  on('ui.render', { component: 'AssistantMessage' }, async ($, e) => {
+    beneath.push({ text: e.props.text, isFirstOfReply: e.props.isFirstOfReply })
+    const { Text } = $.ui.resolve(e)
+
+    return <Text>beneath</Text>
+  })
+  const fence = '```chart bar\na | 1\n```'
+  const drawn = await draw($, ['```sh', 'ls', '```', '', '[[Done]] built', '', fence, '', 'after'].join('\n'))
+
+  expect(beneath).toEqual([
+    { text: '```sh\nls\n```', isFirstOfReply: true },
+    { text: fence, isFirstOfReply: false },
+  ])
+  expect(drawn).toContain('beneath')
+  expect(drawn).toContain('built')
 })

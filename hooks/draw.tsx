@@ -3,7 +3,7 @@ import type { Elements, RenderElement } from 'claude-code'
 import { isDecorated, plain } from './parse'
 import type { Line, Mark, Span } from './parse'
 import { isCallout } from './passage'
-import type { Part, Passage } from './passage'
+import type { Drawable, Part, Passage } from './passage'
 import { isAction, isKnownLabel, labelIcon, readPill } from './vocabulary'
 import type { Role, Tone } from './vocabulary'
 
@@ -131,6 +131,26 @@ export function cellsOf(text: string): number {
   return cells
 }
 
+export function drawBeneath(
+  { Box }: Pick<Kit, 'Box'>,
+  beneath: RenderElement,
+  isFirstOfReply: boolean,
+): RenderElement {
+  // Claude: core draws a block that does not open its reply without the reply's gutter.
+  if (isFirstOfReply || beneath.type !== 'engine') {
+    return beneath
+  }
+
+  return (
+    <Box flexDirection="row">
+      <Box flexShrink={0} minWidth={GUTTER} />
+      <Box flexDirection="column" flexGrow={1} flexShrink={1}>
+        {beneath}
+      </Box>
+    </Box>
+  )
+}
+
 export function isWorthDrawing(parts: readonly Part[]): boolean {
   return parts.some(part => {
     switch (part.kind) {
@@ -147,7 +167,7 @@ export function isWorthDrawing(parts: readonly Part[]): boolean {
 
 export function drawReply(
   { Box, Text, Link, Markdown }: Kit,
-  parts: readonly Part[],
+  parts: readonly Drawable[],
   frame: Frame,
   style: Style,
 ): RenderElement {
@@ -375,7 +395,7 @@ export function drawReply(
       </Box>
     )
 
-  const drawPart = (part: Part): RenderElement => {
+  const drawPart = (part: Drawable): RenderElement => {
     switch (part.kind) {
       case 'blank':
         return <Box height={1} />
