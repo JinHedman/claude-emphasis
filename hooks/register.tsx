@@ -22,6 +22,7 @@ export const register: Register = (on, options) => {
       typeof options.boldColor === 'string' && options.boldColor !== ''
         ? options.boldColor
         : 'claude',
+    pillSpacing: options.pillSpacing !== false,
   }
 
   on(

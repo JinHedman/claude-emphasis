@@ -349,3 +349,32 @@ test('a fence is handed down the chain between the drawn parts around it', async
   expect(drawn).toContain('beneath')
   expect(drawn).toContain('built')
 })
+
+const spacers = (drawn: string) => drawn.match(/"height":1/g)?.length ?? 0
+
+test('adjacent lines with filled pills get a blank row between them', async $ => {
+  const stacked = await draw($, '- [[Done]] one\n- [[Fixed]] two\n- [[Live]] three')
+  const mixed = await draw($, '- [[Done]] one\n- plain two\n- [[Live]] three')
+  const graded = await draw($, '- one [[Observed]]\n- two [[Inferred]]')
+
+  expect(spacers(stacked)).toBe(2)
+  expect(spacers(mixed)).toBe(0)
+  expect(spacers(graded)).toBe(0)
+})
+
+test('adjacent callouts get a blank row between them', async $ => {
+  const drawn = await draw(
+    $,
+    '[[Needs you]] the login. **Do:** sign in.\n[[Blocked]] the deploy. **Unblock:** fix CI.',
+  )
+
+  expect(spacers(drawn)).toBe(1)
+})
+
+test(
+  'pill spacing can be turned off',
+  { options: { pillSpacing: false } },
+  async $ => {
+    expect(spacers(await draw($, '- [[Done]] one\n- [[Fixed]] two'))).toBe(0)
+  },
+)

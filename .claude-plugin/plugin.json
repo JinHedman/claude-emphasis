@@ -22,6 +22,12 @@
       "title": "Bold color",
       "description": "Theme key or raw color for bold text",
       "default": "claude"
+    },
+    "pillSpacing": {
+      "type": "boolean",
+      "title": "Pill spacing",
+      "description": "A blank line between adjacent lines that both hold a filled pill, and between adjacent callouts",
+      "default": true
     }
   }
 }

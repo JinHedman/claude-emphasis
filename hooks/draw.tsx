@@ -11,6 +11,7 @@ export type Style = {
   icons: boolean
   roundCaps: boolean
   boldColor: string
+  pillSpacing: boolean
 }
 
 export type Frame = { isFirstOfReply: boolean; columns: number }
@@ -79,6 +80,14 @@ function trimEnd(spans: readonly Span[]): Span[] {
   const text = last.text.trimEnd()
 
   return text === '' ? rest : [...rest, { kind: 'text', text }]
+}
+
+function hasFilledPill(spans: readonly Span[]): boolean {
+  return spans.some(span =>
+    span.kind === 'pill'
+      ? !readPill(span.label).isGrade
+      : 'spans' in span && hasFilledPill(span.spans),
+  )
 }
 
 function splitAtAction(spans: readonly Span[]): Span[][] {
@@ -349,6 +358,38 @@ export function drawReply(
     )
   }
 
+  // Terminal rows have no margin, so two filled pills or two callout bars
+  // on adjacent rows touch. A blank row between them keeps them apart.
+  const isPillGap = (
+    above: readonly Span[] | undefined,
+    below: readonly Span[],
+  ): boolean =>
+    style.pillSpacing &&
+    above !== undefined &&
+    hasFilledPill(above) &&
+    hasFilledPill(below)
+
+  const gapIf = (isNeeded: boolean): RenderElement[] =>
+    isNeeded ? [<Box height={1} />] : []
+
+  const lastRowOf = (passage: Passage): readonly Span[] | undefined => {
+    const last = passage.lines[passage.lines.length - 1]
+
+    if (last === undefined || passage.lines.length > 1 || !isCallout(passage)) {
+      return last?.spans
+    }
+    const rows = splitAtAction(last.spans)
+
+    return rows[rows.length - 1]
+  }
+
+  const isPartGap = (above: Drawable | undefined, below: Drawable): boolean =>
+    style.pillSpacing &&
+    above?.kind === 'passage' &&
+    below.kind === 'passage' &&
+    ((isCallout(above) && isCallout(below)) ||
+      isPillGap(lastRowOf(above), below.lines[0]?.spans ?? []))
+
   const drawLine = (line: Line, tint: Tint): RenderElement =>
     drawRow(line.spans, tint, line.indent, line.marker)
 
@@ -370,17 +411,24 @@ export function drawReply(
           backgroundColor={TONE_COLORS[passage.tone]}
         />
         <Box flexDirection="column" flexGrow={1} flexShrink={1} paddingLeft={1}>
-          {splitAtAction(opener.spans).map(spans =>
-            drawRow(spans, PLAIN, 0, undefined),
-          )}
-          {rest.map(line =>
-            drawRow(
-              line.spans,
-              PLAIN,
-              Math.max(0, line.indent - textStart),
-              line.marker,
-            ),
-          )}
+          {[
+            ...splitAtAction(opener.spans).map(spans => ({
+              spans,
+              row: drawRow(spans, PLAIN, 0, undefined),
+            })),
+            ...rest.map(line => ({
+              spans: line.spans,
+              row: drawRow(
+                line.spans,
+                PLAIN,
+                Math.max(0, line.indent - textStart),
+                line.marker,
+              ),
+            })),
+          ].flatMap(({ spans, row }, index, rows) => [
+            ...gapIf(isPillGap(rows[index - 1]?.spans, spans)),
+            row,
+          ])}
         </Box>
       </Box>
     )
@@ -391,7 +439,10 @@ export function drawReply(
       drawCallout(passage)
     ) : (
       <Box flexDirection="column">
-        {passage.lines.map(line => drawLine(line, TINTS[passage.role]))}
+        {passage.lines.flatMap((line, index) => [
+          ...gapIf(isPillGap(passage.lines[index - 1]?.spans, line.spans)),
+          drawLine(line, TINTS[passage.role]),
+        ])}
       </Box>
     )
 
@@ -446,7 +497,10 @@ export function drawReply(
         <Text>{frame.isFirstOfReply ? REPLY_BULLET : ' '}</Text>
       </Box>
       <Box flexDirection="column" flexGrow={1} flexShrink={1}>
-        {parts.map(drawPart)}
+        {parts.flatMap((part, index) => [
+          ...gapIf(isPartGap(parts[index - 1], part)),
+          drawPart(part),
+        ])}
       </Box>
     </Box>
   )
