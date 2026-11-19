@@ -318,6 +318,16 @@ test('the first two heading levels carry a rule', async $ => {
   expect(await draw($, '### Detail')).not.toContain('──')
 })
 
+test('a reply a mod beneath hid stays hidden', async ($, on) => {
+  on('ui.render', { component: 'AssistantMessage' }, ($, e) => {
+    const { Box } = $.ui.resolve(e)
+
+    return <Box />
+  })
+
+  expect(await draw($, '[[Done]] built')).not.toContain('built')
+})
+
 test('a fence is handed down the chain between the drawn parts around it', async ($, on) => {
   const beneath: { text: string; isFirstOfReply: boolean }[] = []
 
@@ -328,9 +338,11 @@ test('a fence is handed down the chain between the drawn parts around it', async
     return <Text>beneath</Text>
   })
   const fence = '```chart bar\na | 1\n```'
-  const drawn = await draw($, ['```sh', 'ls', '```', '', '[[Done]] built', '', fence, '', 'after'].join('\n'))
+  const reply = ['```sh', 'ls', '```', '', '[[Done]] built', '', fence, '', 'after'].join('\n')
+  const drawn = await draw($, reply)
 
   expect(beneath).toEqual([
+    { text: reply, isFirstOfReply: true },
     { text: '```sh\nls\n```', isFirstOfReply: true },
     { text: fence, isFirstOfReply: false },
   ])

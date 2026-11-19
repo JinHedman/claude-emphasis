@@ -1,4 +1,4 @@
-import type { Register, RenderElement } from 'claude-code'
+import type { Register, RenderElement, RenderNode } from 'claude-code'
 
 import { drawBeneath, drawReply, isWorthDrawing } from './draw'
 import type { Style } from './draw'
@@ -6,6 +6,13 @@ import { parse } from './parse'
 import { arrange, piecesOf } from './passage'
 
 const FALLBACK_COLUMNS = 80
+
+const drawsNothing = (node: RenderNode): boolean =>
+  typeof node === 'string'
+    ? node === ''
+    : (node.type === 'Box' || node.type === 'Text') &&
+      Object.keys(node.props ?? {}).length === 0 &&
+      (node.children ?? []).every(drawsNothing)
 
 export const register: Register = (on, options) => {
   const style: Style = {
@@ -21,13 +28,15 @@ export const register: Register = (on, options) => {
     'ui.render',
     { component: 'AssistantMessage', surface: 'terminal' },
     async ($, e, next) => {
-      if (e.props.isSummary) {
-        return next(e)
+      const beneath = await next(e)
+
+      if (e.props.isSummary || drawsNothing(beneath)) {
+        return beneath
       }
       const parts = arrange(parse(e.props.text))
 
       if (!isWorthDrawing(parts)) {
-        return next(e)
+        return beneath
       }
       const kit = $.ui.resolve(e)
       const columns = e.viewport?.columns ?? FALLBACK_COLUMNS
