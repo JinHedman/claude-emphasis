@@ -1,6 +1,6 @@
 {
   "name": "emphasis",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Draws [[Status]] pills, asks as barred blocks, evidence and guesses in their own weight, label icons and colored bold in assistant replies in the terminal.",
   "author": { "name": "kristalalfred" },
   "license": "MIT",
